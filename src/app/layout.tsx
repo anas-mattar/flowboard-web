@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "@/styles/globals.css";
+import { SessionProvider } from "next-auth/react";
 import { TrpcProvider } from "@/lib/trpc/client";
 import { ThemeProvider } from "@/lib/theme/theme-context";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,7 +40,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <ThemeProvider>
-          <TrpcProvider>{children}</TrpcProvider>
+          <SessionProvider>
+            <TrpcProvider>{children}</TrpcProvider>
+          </SessionProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
