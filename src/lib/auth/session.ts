@@ -3,6 +3,7 @@
 // this rebuilds a minimal one from next/headers' cookies() for next-auth/jwt's getToken.
 import { cookies } from "next/headers";
 import { getToken } from "next-auth/jwt";
+import { isSecureCookie } from "@/lib/auth/secure-cookie";
 
 export interface BackendSession {
   userPublicId: string;
@@ -21,6 +22,7 @@ export async function getBackendSession(): Promise<BackendSession | null> {
   const token = await getToken({
     req: { headers: new Headers({ cookie: cookieHeader }) },
     secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: isSecureCookie,
   });
 
   if (!token?.backendToken) {
