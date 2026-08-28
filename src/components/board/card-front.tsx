@@ -1,27 +1,19 @@
 // VI-009/VI-010/VI-011: label chips, title, then a meta row showing only the
 // indicators that apply (FR-005) — due badge (color from server-computed dueStatus,
 // never re-derived client-side per frontend-rules.md), checklist progress, comment
-// count, member avatars. A card with nothing to show renders only its title.
+// count, member avatars. A card with nothing to show renders only its title. Clicking
+// anywhere on the card opens its detail modal (specs/004-card-crud, US2).
 import { Calendar, CheckSquare, FileText, MessageSquare } from "lucide-react";
 import type { CardSummary } from "@/lib/api/boards-client";
+import { DUE_STATUS_STYLES, formatDueLabel } from "@/lib/cards/due-status";
 import { cn } from "@/lib/utils";
 
 interface CardFrontProps {
   card: CardSummary;
+  onClick: () => void;
 }
 
-const DUE_STATUS_STYLES: Record<NonNullable<CardSummary["dueStatus"]>, string> = {
-  complete: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
-  overdue: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
-  soon: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400",
-  future: "bg-muted text-muted-foreground",
-};
-
-function formatDueLabel(dueAt: string): string {
-  return new Date(dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-export function CardFront({ card }: CardFrontProps) {
+export function CardFront({ card, onClick }: CardFrontProps) {
   const hasChecklist = card.checklistTotal !== null && card.checklistDone !== null;
   const hasMeta =
     card.hasDescription ||
@@ -31,7 +23,11 @@ export function CardFront({ card }: CardFrontProps) {
     card.members.length > 0;
 
   return (
-    <div className="rounded-md border border-border bg-card p-3 shadow-sm">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-md border border-border bg-card p-3 text-left shadow-sm hover:border-ring/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       {card.labels.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1">
           {card.labels.map((label) => (
@@ -95,6 +91,6 @@ export function CardFront({ card }: CardFrontProps) {
           )}
         </div>
       )}
-    </div>
+    </button>
   );
 }

@@ -1,18 +1,23 @@
+"use client";
+
 // VI-007/VI-008: header (name, WIP/count pill, "⋯" menu) + cards stacked top-to-bottom
-// + an "+ Add a card" footer. The pill/menu/footer controls are inert (FR-007) — list
-// creation/reordering/editing belongs to 006. The count pill uses List.WipLimit
-// (display-only, invariant 3 — never enforced here): plain count when unset, red
-// count/limit when the count exceeds it, gray otherwise.
-import { MoreHorizontal, Plus } from "lucide-react";
+// + a real "+ Add a card" composer (specs/004-card-crud, US1). The pill/menu controls
+// stay inert (FR-007) — list creation/reordering/editing belongs to 006. The count pill
+// uses List.WipLimit (display-only, invariant 3 — never enforced here): plain count when
+// unset, red count/limit when the count exceeds it, gray otherwise.
+import { MoreHorizontal } from "lucide-react";
 import type { ListContent } from "@/lib/api/boards-client";
 import { CardFront } from "@/components/board/card-front";
+import { CardComposer } from "@/components/board/card-composer";
 import { cn } from "@/lib/utils";
 
 interface ListColumnProps {
   list: ListContent;
+  boardPublicId: string;
+  onOpenCard: (cardPublicId: string) => void;
 }
 
-export function ListColumn({ list }: ListColumnProps) {
+export function ListColumn({ list, boardPublicId, onOpenCard }: ListColumnProps) {
   const exceeded = list.wipLimit !== null && list.cardCount > list.wipLimit;
   const pillLabel =
     list.wipLimit !== null ? `${list.cardCount}/${list.wipLimit}` : `${list.cardCount}`;
@@ -48,18 +53,11 @@ export function ListColumn({ list }: ListColumnProps) {
           <p className="px-1 py-2 text-xs text-muted-foreground">No cards yet.</p>
         )}
         {list.cards.map((card) => (
-          <CardFront key={card.publicId} card={card} />
+          <CardFront key={card.publicId} card={card} onClick={() => onOpenCard(card.publicId)} />
         ))}
       </div>
 
-      <button
-        type="button"
-        disabled
-        className="mt-1 flex items-center gap-1 rounded px-1 py-1.5 text-left text-sm text-muted-foreground/70"
-      >
-        <Plus className="size-3.5" />
-        Add a card
-      </button>
+      <CardComposer listPublicId={list.publicId} boardPublicId={boardPublicId} />
     </div>
   );
 }

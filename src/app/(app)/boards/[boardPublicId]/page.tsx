@@ -1,9 +1,9 @@
-// T053's seam completed by 003: this page now fetches the board's real content
-// (boards.getContent) and renders the read-only canvas, plus the existing membership
-// list (2's boardMembers.list) for the top bar's avatar stack (R-6). The (app) layout
-// already redirects unauthenticated visitors to /login; this page's own guard is the
-// NOT_FOUND branch below, unchanged from 002 (FR-013 — a board's existence is not
-// confirmed to a non-member).
+// This server component still does the first fetch (auth gate, fast first paint,
+// unchanged from 003) and hands off to the client-driven BoardCanvas (004's ADR-19),
+// plus the existing membership list (002's boardMembers.list) for the top bar's avatar
+// stack (R-6). The (app) layout already redirects unauthenticated visitors to /login;
+// this page's own guard is the NOT_FOUND branch below, unchanged from 002 (FR-013 — a
+// board's existence is not confirmed to a non-member).
 import { TRPCError } from "@trpc/server";
 import { createServerCaller } from "@/server/api/caller";
 import { TopBar } from "@/components/layout/top-bar";
@@ -45,7 +45,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
           members: membership.members.map((member) => member.user),
         }}
       />
-      <BoardCanvas board={content} />
+      <BoardCanvas boardPublicId={boardPublicId} initialBoard={content} />
     </>
   );
 }
