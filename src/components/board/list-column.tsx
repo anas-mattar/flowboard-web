@@ -15,9 +15,10 @@ interface ListColumnProps {
   list: ListContent;
   boardPublicId: string;
   onOpenCard: (cardPublicId: string) => void;
+  canMutate: boolean;
 }
 
-export function ListColumn({ list, boardPublicId, onOpenCard }: ListColumnProps) {
+export function ListColumn({ list, boardPublicId, onOpenCard, canMutate }: ListColumnProps) {
   const exceeded = list.wipLimit !== null && list.cardCount > list.wipLimit;
   const pillLabel =
     list.wipLimit !== null ? `${list.cardCount}/${list.wipLimit}` : `${list.cardCount}`;
@@ -57,7 +58,7 @@ export function ListColumn({ list, boardPublicId, onOpenCard }: ListColumnProps)
         ))}
       </div>
 
-      <CardComposer listPublicId={list.publicId} boardPublicId={boardPublicId} />
+      {canMutate && <CardComposer listPublicId={list.publicId} boardPublicId={boardPublicId} />}
     </div>
   );
 }

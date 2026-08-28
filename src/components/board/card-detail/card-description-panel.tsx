@@ -18,6 +18,7 @@ interface CardDescriptionPanelProps {
   boardPublicId: string;
   description: string | null;
   etag: string;
+  canMutate: boolean;
 }
 
 function errorMessage(error: unknown): string {
@@ -32,6 +33,7 @@ export function CardDescriptionPanel({
   boardPublicId,
   description,
   etag,
+  canMutate,
 }: CardDescriptionPanelProps) {
   const [value, setValue] = useState(description ?? "");
   // Render-time state adjustment (react.dev "You Might Not Need an Effect") — keeps the
@@ -68,6 +70,20 @@ export function CardDescriptionPanel({
       }
     }
   };
+
+  if (!canMutate) {
+    if (!description) {
+      return null;
+    }
+    return (
+      <section>
+        <h4 className="mb-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          Description
+        </h4>
+        <p className="whitespace-pre-wrap text-sm">{description}</p>
+      </section>
+    );
+  }
 
   return (
     <section>

@@ -8,6 +8,7 @@
 // the first paint is unchanged) — every card mutation invalidates this same query.
 // plan.md ADR-14: the open card is plain client-side dialog state, not a route.
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc/client";
 import type { BoardContent, LabelSummary } from "@/lib/api/boards-client";
 import { ListColumn } from "@/components/board/list-column";
@@ -25,6 +26,16 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
     { initialData: initialBoard },
   );
   const activeBoard = board ?? initialBoard;
+
+  // Spec §6 / frontend-rules.md: Observer can view and comment only — every card
+  // mutation (add a card, and everything inside the detail modal) is hidden for that
+  // role. UX only; the backend's own CanMutate check is what actually enforces it.
+  const { data: session } = useSession();
+  const membersQuery = trpc.boardMembers.list.useQuery({ boardPublicId });
+  const viewerEntry = membersQuery.data?.members.find(
+    (member) => member.user.publicId === session?.user?.publicId,
+  );
+  const canMutate = !viewerEntry || viewerEntry.role !== "Observer";
 
   // Known limitation (no board-level label listing endpoint exists yet, see
   // specs/004-card-crud/review-notes.md): the labels panel can only offer labels
@@ -55,6 +66,7 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
                 list={list}
                 boardPublicId={boardPublicId}
                 onOpenCard={setOpenCardPublicId}
+                canMutate={canMutate}
               />
             ))}
           </div>
@@ -67,6 +79,7 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
           boardPublicId={boardPublicId}
           boardLabels={boardLabels}
           onClose={() => setOpenCardPublicId(null)}
+          canMutate={canMutate}
         />
       )}
     </>

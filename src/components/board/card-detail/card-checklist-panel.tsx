@@ -16,13 +16,14 @@ interface CardChecklistPanelProps {
   cardPublicId: string;
   boardPublicId: string;
   items: ChecklistItemDetail[];
+  canMutate: boolean;
 }
 
 function errorMessage(error: unknown): string {
   return isTRPCClientError(error) ? error.message : "Something went wrong.";
 }
 
-export function CardChecklistPanel({ cardPublicId, boardPublicId, items }: CardChecklistPanelProps) {
+export function CardChecklistPanel({ cardPublicId, boardPublicId, items, canMutate }: CardChecklistPanelProps) {
   const [draft, setDraft] = useState("");
   const utils = trpc.useUtils();
   const invalidate = () => {
@@ -87,42 +88,46 @@ export function CardChecklistPanel({ cardPublicId, boardPublicId, items }: CardC
           <li key={item.publicId} className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-muted/60">
             <Checkbox
               checked={item.done}
-              disabled={toggleMutation.isPending}
+              disabled={!canMutate || toggleMutation.isPending}
               onCheckedChange={(checked) => onToggle(item, checked === true)}
             />
             <span className={item.done ? "flex-1 text-sm text-muted-foreground line-through" : "flex-1 text-sm"}>
               {item.text}
             </span>
-            <button
-              type="button"
-              aria-label="Delete checklist item"
-              disabled={deleteMutation.isPending}
-              onClick={() => onDelete(item)}
-              className="rounded p-1 text-muted-foreground opacity-0 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
-            >
-              <X className="size-3.5" />
-            </button>
+            {canMutate && (
+              <button
+                type="button"
+                aria-label="Delete checklist item"
+                disabled={deleteMutation.isPending}
+                onClick={() => onDelete(item)}
+                className="rounded p-1 text-muted-foreground opacity-0 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
           </li>
         ))}
       </ul>
 
-      <div className="mt-2 flex items-center gap-2">
-        <Input
-          value={draft}
-          placeholder="Add an item"
-          disabled={addMutation.isPending}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              onAdd();
-            }
-          }}
-        />
-        <Button size="sm" disabled={draft.trim().length === 0 || addMutation.isPending} onClick={onAdd}>
-          Add
-        </Button>
-      </div>
+      {canMutate && (
+        <div className="mt-2 flex items-center gap-2">
+          <Input
+            value={draft}
+            placeholder="Add an item"
+            disabled={addMutation.isPending}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                onAdd();
+              }
+            }}
+          />
+          <Button size="sm" disabled={draft.trim().length === 0 || addMutation.isPending} onClick={onAdd}>
+            Add
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

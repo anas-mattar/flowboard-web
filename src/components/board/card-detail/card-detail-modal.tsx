@@ -20,9 +20,16 @@ interface CardDetailModalProps {
   boardPublicId: string;
   boardLabels: LabelSummary[];
   onClose: () => void;
+  canMutate: boolean;
 }
 
-export function CardDetailModal({ cardPublicId, boardPublicId, boardLabels, onClose }: CardDetailModalProps) {
+export function CardDetailModal({
+  cardPublicId,
+  boardPublicId,
+  boardLabels,
+  onClose,
+  canMutate,
+}: CardDetailModalProps) {
   const detailQuery = trpc.cards.getDetail.useQuery({ cardPublicId });
 
   return (
@@ -57,6 +64,7 @@ export function CardDetailModal({ cardPublicId, boardPublicId, boardLabels, onCl
                 boardPublicId={boardPublicId}
                 title={detailQuery.data.card.title}
                 etag={detailQuery.data.etag}
+                canMutate={canMutate}
               />
             </header>
 
@@ -86,12 +94,14 @@ export function CardDetailModal({ cardPublicId, boardPublicId, boardLabels, onCl
                   boardPublicId={boardPublicId}
                   description={detailQuery.data.card.description}
                   etag={detailQuery.data.etag}
+                  canMutate={canMutate}
                 />
 
                 <CardChecklistPanel
                   cardPublicId={cardPublicId}
                   boardPublicId={boardPublicId}
                   items={detailQuery.data.card.checklistItems}
+                  canMutate={canMutate}
                 />
 
                 <CardActivityFeed cardPublicId={cardPublicId} />
@@ -104,6 +114,7 @@ export function CardDetailModal({ cardPublicId, boardPublicId, boardLabels, onCl
                   boardPublicId={boardPublicId}
                   boardLabels={boardLabels}
                   onClosed={onClose}
+                  canMutate={canMutate}
                 />
               </div>
             </div>

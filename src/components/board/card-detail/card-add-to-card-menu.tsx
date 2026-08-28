@@ -23,13 +23,21 @@ interface CardAddToCardMenuProps {
   boardPublicId: string;
   boardLabels: LabelSummary[];
   onClosed: () => void;
+  canMutate: boolean;
 }
 
 function errorMessage(error: unknown): string {
   return isTRPCClientError(error) ? error.message : "Something went wrong.";
 }
 
-export function CardAddToCardMenu({ card, etag, boardPublicId, boardLabels, onClosed }: CardAddToCardMenuProps) {
+export function CardAddToCardMenu({
+  card,
+  etag,
+  boardPublicId,
+  boardLabels,
+  onClosed,
+  canMutate,
+}: CardAddToCardMenuProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const utils = trpc.useUtils();
 
@@ -50,6 +58,13 @@ export function CardAddToCardMenu({ card, etag, boardPublicId, boardLabels, onCl
     },
     onError: (error) => toast.error(errorMessage(error)),
   });
+
+  // spec §6 / frontend-rules.md: Observer can view and comment only — every control in
+  // this panel is a mutation, so the whole panel is absent for that role (UX only; the
+  // backend's own CanMutate check, Phase A, is what actually enforces it).
+  if (!canMutate) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-1.5">

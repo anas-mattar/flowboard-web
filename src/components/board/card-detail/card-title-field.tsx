@@ -15,6 +15,7 @@ interface CardTitleFieldProps {
   boardPublicId: string;
   title: string;
   etag: string;
+  canMutate: boolean;
 }
 
 function errorMessage(error: unknown): string {
@@ -24,7 +25,7 @@ function errorMessage(error: unknown): string {
   return isTRPCClientError(error) ? error.message : "Something went wrong.";
 }
 
-export function CardTitleField({ cardPublicId, boardPublicId, title, etag }: CardTitleFieldProps) {
+export function CardTitleField({ cardPublicId, boardPublicId, title, etag, canMutate }: CardTitleFieldProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(title);
   const utils = trpc.useUtils();
@@ -60,6 +61,10 @@ export function CardTitleField({ cardPublicId, boardPublicId, title, etag }: Car
       setIsEditing(false);
     }
   };
+
+  if (!canMutate) {
+    return <p className="px-1 py-0.5 text-lg font-semibold">{title}</p>;
+  }
 
   if (!isEditing) {
     return (
