@@ -1,16 +1,97 @@
+import { Filter, Search, Star, UserPlus } from "lucide-react";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { SignOutButton } from "@/components/layout/sign-out-button";
+import { SidebarToggleButton } from "@/components/layout/sidebar-toggle-button";
 import { auth } from "@/lib/auth/auth-config";
+import type { MemberAvatar } from "@/lib/api/boards-client";
 
-// US2: workspace identity in the shell, no extra step — the session already carries it
-// (research R-5, R-6: identity-only backend claims, but the frontend session projection
-// includes workspace name/role from sign-in, ADR-10's single-workspace-owner model).
-export async function TopBar() {
+export interface TopBarBoardSummary {
+  name: string;
+  members: MemberAvatar[];
+}
+
+interface TopBarProps {
+  board?: TopBarBoardSummary;
+}
+
+// US2/R-6: workspace identity when no board is open (unchanged since 001/002); once a
+// board is open, VI-004/VI-005's full layout takes over — title, star, search, filter,
+// avatar stack, invite, theme toggle. The decorative controls this feature doesn't wire
+// up (star, search, filter, invite) stay visible but inert (FR-007/Assumptions) —
+// `disabled` communicates that to assistive tech rather than presenting a control that
+// silently does nothing when activated. The sidebar toggle (US3, T036) is functional.
+export async function TopBar({ board }: TopBarProps) {
   const session = await auth();
+
+  if (board) {
+    return (
+      <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <SidebarToggleButton />
+          <h1 className="truncate text-lg font-bold tracking-tight">{board.name}</h1>
+          <button
+            type="button"
+            disabled
+            aria-label="Star this board (not available yet)"
+            className="text-foreground/60 disabled:opacity-60"
+          >
+            {/* VI-004: the reference shows a plain outline star regardless of the
+                board's starred state — like the other FR-007 controls, this one is
+                decorative in this feature, not a live reflection of Board.Starred. */}
+            <Star className="size-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative hidden sm:block">
+            <Search className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="search"
+              disabled
+              placeholder="Search cards…"
+              className="h-8 w-40 rounded-md border border-input bg-transparent pl-7 text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70 md:w-56"
+            />
+          </div>
+          <button
+            type="button"
+            disabled
+            className="flex items-center gap-1.5 rounded-md border border-foreground/20 px-2.5 py-1.5 text-sm text-foreground/70 disabled:opacity-60"
+          >
+            <Filter className="size-3.5" />
+            Filter
+          </button>
+          {board.members.length > 0 && (
+            <div className="flex -space-x-1.5">
+              {board.members.map((member) => (
+                <span
+                  key={member.publicId}
+                  title={member.displayName}
+                  className="flex size-6 items-center justify-center rounded-full border-2 border-background text-[0.65rem] font-medium text-white"
+                  style={{ backgroundColor: member.avatarColor }}
+                >
+                  {member.initials}
+                </span>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            disabled
+            className="flex items-center gap-1.5 rounded-md border border-foreground/20 px-2.5 py-1.5 text-sm text-foreground/70 disabled:opacity-60"
+          >
+            <UserPlus className="size-3.5" />
+            Invite
+          </button>
+          <ThemeToggle />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="flex items-center justify-between border-b border-foreground/10 px-6 py-3">
       <div className="flex items-center gap-3">
+        <SidebarToggleButton />
         <span className="text-lg font-semibold tracking-tight">FlowBoard</span>
         {session?.user && (
           <span className="text-sm text-muted-foreground">
