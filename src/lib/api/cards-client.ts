@@ -353,3 +353,22 @@ export async function deleteCard(cardPublicId: string, backendToken: string): Pr
   if (result.status === 404) return { ok: false, status: "not_found" };
   return { ok: false, status: "unavailable" };
 }
+
+// specs/005-drag-drop-ordering/contracts/move-api.md — POST /v1/cards/{id}/move.
+export async function moveCard(
+  cardPublicId: string,
+  listPublicId: string,
+  beforeCardPublicId: string | undefined,
+  backendToken: string,
+): Promise<SimpleMutationResult> {
+  const result = await callCardsApi(`/v1/cards/${cardPublicId}/move`, backendToken, {
+    method: "POST",
+    body: { listPublicId, beforeCardPublicId: beforeCardPublicId ?? null },
+  });
+  if (!result.reached) return { ok: false, status: "unavailable" };
+  if (result.status === 204) return { ok: true };
+  if (result.status === 400) return validationFailure(result.payload);
+  if (result.status === 403) return { ok: false, status: "forbidden" };
+  if (result.status === 404) return { ok: false, status: "not_found" };
+  return { ok: false, status: "unavailable" };
+}

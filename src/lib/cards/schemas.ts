@@ -60,3 +60,11 @@ export const getActivityInputSchema = z.object({
 
 export const copyCardInputSchema = z.object({ cardPublicId: z.string() });
 export const deleteCardInputSchema = z.object({ cardPublicId: z.string() });
+
+// specs/005-drag-drop-ordering/contracts/move-api.md.
+export const moveCardInputSchema = z.object({
+  cardPublicId: z.string(),
+  listPublicId: z.string(),
+  beforeCardPublicId: z.string().optional(),
+});
+export type MoveCardInput = z.infer<typeof moveCardInputSchema>;

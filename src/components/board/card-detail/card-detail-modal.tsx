@@ -5,7 +5,7 @@
 // (single column below 700px, VI-003); dismissed by close button, scrim click, or Esc
 // (all three handled by Radix Dialog's onOpenChange, which fires on both).
 import { trpc } from "@/lib/trpc/client";
-import type { LabelSummary } from "@/lib/api/boards-client";
+import type { LabelSummary, ListContent } from "@/lib/api/boards-client";
 import { DUE_STATUS_STYLES, formatDueLabel } from "@/lib/cards/due-status";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -19,6 +19,7 @@ interface CardDetailModalProps {
   cardPublicId: string;
   boardPublicId: string;
   boardLabels: LabelSummary[];
+  boardLists: ListContent[];
   onClose: () => void;
   canMutate: boolean;
 }
@@ -27,6 +28,7 @@ export function CardDetailModal({
   cardPublicId,
   boardPublicId,
   boardLabels,
+  boardLists,
   onClose,
   canMutate,
 }: CardDetailModalProps) {
@@ -113,6 +115,7 @@ export function CardDetailModal({
                   etag={detailQuery.data.etag}
                   boardPublicId={boardPublicId}
                   boardLabels={boardLabels}
+                  boardLists={boardLists}
                   onClosed={onClose}
                   canMutate={canMutate}
                 />

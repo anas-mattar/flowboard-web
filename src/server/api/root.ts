@@ -4,6 +4,7 @@ import { authRouter } from "@/server/api/routers/auth";
 import { boardMembersRouter } from "@/server/api/routers/board-members";
 import { boardsRouter } from "@/server/api/routers/boards";
 import { cardsRouter } from "@/server/api/routers/cards";
+import { listsRouter } from "@/server/api/routers/lists";
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
@@ -11,6 +12,7 @@ export const appRouter = createTRPCRouter({
   boardMembers: boardMembersRouter,
   boards: boardsRouter,
   cards: cardsRouter,
+  lists: listsRouter,
 });
 
 export type AppRouter = typeof appRouter;
