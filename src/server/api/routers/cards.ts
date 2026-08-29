@@ -20,6 +20,7 @@ import {
   getActivityInputSchema,
   copyCardInputSchema,
   deleteCardInputSchema,
+  moveCardInputSchema,
 } from "@/lib/cards/schemas";
 import {
   createCard,
@@ -36,6 +37,7 @@ import {
   getActivity,
   copyCard,
   deleteCard,
+  moveCard,
 } from "@/lib/api/cards-client";
 
 function unavailable(): TRPCError {
@@ -189,6 +191,20 @@ export const cardsRouter = createTRPCRouter({
   delete: protectedProcedure.input(deleteCardInputSchema).mutation(async ({ ctx, input }) => {
     const result = await deleteCard(input.cardPublicId, ctx.session.backendToken);
     if (result.ok) return { ok: true as const };
+    if (result.status === "forbidden") throw forbidden();
+    if (result.status === "not_found") throw notFound();
+    throw unavailable();
+  }),
+
+  move: protectedProcedure.input(moveCardInputSchema).mutation(async ({ ctx, input }) => {
+    const result = await moveCard(
+      input.cardPublicId,
+      input.listPublicId,
+      input.beforeCardPublicId,
+      ctx.session.backendToken,
+    );
+    if (result.ok) return { ok: true as const };
+    if (result.status === "validation") throw validation(result.fieldErrors);
     if (result.status === "forbidden") throw forbidden();
     if (result.status === "not_found") throw notFound();
     throw unavailable();

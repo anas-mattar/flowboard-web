@@ -3,17 +3,24 @@
 // never re-derived client-side per frontend-rules.md), checklist progress, comment
 // count, member avatars. A card with nothing to show renders only its title. Clicking
 // anywhere on the card opens its detail modal (specs/004-card-crud, US2).
+// specs/005-drag-drop-ordering: draggable when the caller can mutate (VI-001 — reduced
+// opacity while dragging); ListColumn reads the dragged card's id back out of
+// dataTransfer on drop (research.md R-4), not via a prop callback.
+import { useState } from "react";
 import { Calendar, CheckSquare, FileText, MessageSquare } from "lucide-react";
 import type { CardSummary } from "@/lib/api/boards-client";
 import { DUE_STATUS_STYLES, formatDueLabel } from "@/lib/cards/due-status";
+import { CARD_DRAG_DATA_TYPE } from "@/components/board/drag-data-types";
 import { cn } from "@/lib/utils";
 
 interface CardFrontProps {
   card: CardSummary;
   onClick: () => void;
+  draggable: boolean;
 }
 
-export function CardFront({ card, onClick }: CardFrontProps) {
+export function CardFront({ card, onClick, draggable }: CardFrontProps) {
+  const [isDragging, setIsDragging] = useState(false);
   const hasChecklist = card.checklistTotal !== null && card.checklistDone !== null;
   const hasMeta =
     card.hasDescription ||
@@ -26,7 +33,18 @@ export function CardFront({ card, onClick }: CardFrontProps) {
     <button
       type="button"
       onClick={onClick}
-      className="w-full rounded-md border border-border bg-card p-3 text-left shadow-sm hover:border-ring/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      draggable={draggable}
+      data-card-public-id={card.publicId}
+      onDragStart={(event) => {
+        event.dataTransfer.setData(CARD_DRAG_DATA_TYPE, card.publicId);
+        event.dataTransfer.effectAllowed = "move";
+        setIsDragging(true);
+      }}
+      onDragEnd={() => setIsDragging(false)}
+      className={cn(
+        "w-full rounded-md border border-border bg-card p-3 text-left shadow-sm hover:border-ring/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        isDragging && "opacity-40",
+      )}
     >
       {card.labels.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-1">

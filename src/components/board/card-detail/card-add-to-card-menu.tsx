@@ -1,8 +1,8 @@
 "use client";
 
 // VI-008: the right-column "Add to card" panel — Members, Labels, Due date, Move
-// (inert per FR-016/FR-017 — 005's scope), Copy, Delete. Each of Members/Labels/Due
-// date opens a popover with the actual picker; Copy/Delete act immediately (Delete
+// (specs/005-drag-drop-ordering, US2/C-11), Copy, Delete. Each of Members/Labels/Due
+// date/Move opens a popover with the actual picker; Copy/Delete act immediately (Delete
 // requires an inline confirmation step first, per spec.md's edge case).
 import { useState } from "react";
 import { isTRPCClientError } from "@trpc/client";
@@ -10,18 +10,20 @@ import { toast } from "sonner";
 import { Tag, Users, Calendar, Move, Copy, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import type { CardDetail } from "@/lib/api/cards-client";
-import type { LabelSummary } from "@/lib/api/boards-client";
+import type { LabelSummary, ListContent } from "@/lib/api/boards-client";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CardLabelsPanel } from "@/components/board/card-detail/card-labels-panel";
 import { CardMembersPanel } from "@/components/board/card-detail/card-members-panel";
 import { CardDueDatePanel } from "@/components/board/card-detail/card-due-date-panel";
+import { CardMovePanel } from "@/components/board/card-detail/card-move-panel";
 
 interface CardAddToCardMenuProps {
   card: CardDetail;
   etag: string;
   boardPublicId: string;
   boardLabels: LabelSummary[];
+  boardLists: ListContent[];
   onClosed: () => void;
   canMutate: boolean;
 }
@@ -35,6 +37,7 @@ export function CardAddToCardMenu({
   etag,
   boardPublicId,
   boardLabels,
+  boardLists,
   onClosed,
   canMutate,
 }: CardAddToCardMenuProps) {
@@ -116,16 +119,21 @@ export function CardAddToCardMenu({
         </PopoverContent>
       </Popover>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled
-        aria-label="Move (not available yet)"
-        className="justify-start"
-      >
-        <Move /> Move
-      </Button>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="outline" size="sm" className="justify-start">
+            <Move /> Move
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start">
+          <CardMovePanel
+            cardPublicId={card.publicId}
+            boardPublicId={boardPublicId}
+            currentListPublicId={card.listPublicId}
+            boardLists={boardLists}
+          />
+        </PopoverContent>
+      </Popover>
 
       <Button
         type="button"
