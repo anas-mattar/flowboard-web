@@ -68,6 +68,8 @@ function describe(entry: ActivityEntry): string | null {
       return `unchecked "${payload.text}"`;
     case "checklist.item.deleted":
       return `deleted checklist item "${payload.text}"`;
+    case "card.moved":
+      return `moved this card from ${payload.fromListName} to ${payload.toListName}`;
     default:
       return null;
   }
