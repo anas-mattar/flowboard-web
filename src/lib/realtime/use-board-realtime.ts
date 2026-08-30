@@ -63,7 +63,15 @@ export function useBoardRealtime(boardPublicId: string): BoardRealtimeStatus {
 
     connection.onreconnected(() => {
       setStatus("connected");
-      void connection.invoke("JoinBoard", boardPublicId);
+      connection
+        .invoke("JoinBoard", boardPublicId)
+        .catch(() => {
+          // JoinBoard can be rejected (Context.Abort()) if access was revoked while this
+          // client was offline — treat that like a received access.revoked event: the
+          // board is no longer live for this client, so fall back to the disconnected
+          // (no live updates) presentation rather than claiming "connected".
+          setStatus("disconnected");
+        });
       void utilsRef.current.boards.getContent.invalidate({ boardPublicId });
     });
 
