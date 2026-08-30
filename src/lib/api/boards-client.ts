@@ -46,6 +46,10 @@ export interface ListContent {
   name: string;
   wipLimit: number | null;
   cardCount: number;
+  // specs/006-board-list-management/data-model.md addendum: arms the list's own
+  // If-Match (rename/WIP-limit edits) — GetBoardContentAsync is the only read path
+  // either List or Board has.
+  rowVersion: string;
   cards: CardSummary[];
 }
 
@@ -54,14 +58,33 @@ export interface BoardContent {
   name: string;
   color: string;
   starred: boolean;
+  rowVersion: string;
   lists: ListContent[];
+}
+
+export interface BoardListSummary {
+  publicId: string;
+  name: string;
+}
+
+export interface BoardCreated {
+  publicId: string;
+  name: string;
+  color: string;
+  starred: boolean;
+  cardCount: number;
+  lists: BoardListSummary[];
 }
 
 const BOARDS_API_TIMEOUT_MS = 5_000;
 
 type RawResult = { reached: true; status: number; payload: unknown } | { reached: false };
 
-async function callBoardsApi(path: string, backendToken: string): Promise<RawResult> {
+async function callBoardsApi(
+  path: string,
+  backendToken: string,
+  init?: { method?: string; body?: unknown; ifMatch?: string },
+): Promise<RawResult> {
   const baseUrl = process.env.FLOWBOARD_API_URL;
   if (!baseUrl) {
     return { reached: false };
@@ -70,7 +93,13 @@ async function callBoardsApi(path: string, backendToken: string): Promise<RawRes
   let response: Response;
   try {
     response = await fetch(new URL(path, baseUrl), {
-      headers: { Authorization: `Bearer ${backendToken}` },
+      method: init?.method ?? "GET",
+      headers: {
+        Authorization: `Bearer ${backendToken}`,
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.ifMatch ? { "If-Match": `"${init.ifMatch}"` } : {}),
+      },
+      body: init?.body ? JSON.stringify(init.body) : undefined,
       cache: "no-store",
       signal: AbortSignal.timeout(BOARDS_API_TIMEOUT_MS),
     });
@@ -138,5 +167,90 @@ export async function getBoardContent(
   if (result.status === 404) {
     return { ok: false, status: "not_found" };
   }
+  return { ok: false, status: "unavailable" };
+}
+
+export type CreateBoardResult =
+  | { ok: true; data: BoardCreated }
+  | { ok: false; status: "validation"; fieldErrors: Record<string, string[]> }
+  | { ok: false; status: "unavailable" };
+
+export async function createBoard(name: string, backendToken: string): Promise<CreateBoardResult> {
+  const result = await callBoardsApi("/v1/boards", backendToken, { method: "POST", body: { name } });
+  if (!result.reached) return { ok: false, status: "unavailable" };
+  if (result.status === 201) return { ok: true, data: result.payload as BoardCreated };
+  if (result.status === 400) {
+    const problem = result.payload as { errors?: Record<string, string[]> } | null;
+    return { ok: false, status: "validation", fieldErrors: problem?.errors ?? {} };
+  }
+  return { ok: false, status: "unavailable" };
+}
+
+export type RenameBoardResult =
+  | { ok: true; data: { name: string; rowVersion: string } }
+  | { ok: false; status: "validation"; fieldErrors: Record<string, string[]> }
+  | { ok: false; status: "forbidden" }
+  | { ok: false; status: "not_found" }
+  | { ok: false; status: "conflict" }
+  | { ok: false; status: "unavailable" };
+
+export async function renameBoard(
+  boardPublicId: string,
+  name: string,
+  ifMatch: string,
+  backendToken: string,
+): Promise<RenameBoardResult> {
+  const result = await callBoardsApi(`/v1/boards/${boardPublicId}`, backendToken, {
+    method: "PATCH",
+    body: { name },
+    ifMatch,
+  });
+  if (!result.reached) return { ok: false, status: "unavailable" };
+  if (result.status === 200) return { ok: true, data: result.payload as { name: string; rowVersion: string } };
+  if (result.status === 400) {
+    const problem = result.payload as { errors?: Record<string, string[]> } | null;
+    return { ok: false, status: "validation", fieldErrors: problem?.errors ?? {} };
+  }
+  if (result.status === 403) return { ok: false, status: "forbidden" };
+  if (result.status === 404) return { ok: false, status: "not_found" };
+  if (result.status === 409) return { ok: false, status: "conflict" };
+  return { ok: false, status: "unavailable" };
+}
+
+export type StarBoardResult =
+  | { ok: true }
+  | { ok: false; status: "forbidden" }
+  | { ok: false; status: "not_found" }
+  | { ok: false; status: "unavailable" };
+
+async function setBoardStarred(boardPublicId: string, starred: boolean, backendToken: string): Promise<StarBoardResult> {
+  const result = await callBoardsApi(`/v1/boards/${boardPublicId}/${starred ? "star" : "unstar"}`, backendToken, {
+    method: "POST",
+  });
+  if (!result.reached) return { ok: false, status: "unavailable" };
+  if (result.status === 204) return { ok: true };
+  if (result.status === 403) return { ok: false, status: "forbidden" };
+  if (result.status === 404) return { ok: false, status: "not_found" };
+  return { ok: false, status: "unavailable" };
+}
+
+export const starBoard = (boardPublicId: string, backendToken: string) =>
+  setBoardStarred(boardPublicId, true, backendToken);
+
+export const unstarBoard = (boardPublicId: string, backendToken: string) =>
+  setBoardStarred(boardPublicId, false, backendToken);
+
+export type DeleteBoardResult =
+  | { ok: true }
+  | { ok: false; status: "forbidden" }
+  | { ok: false; status: "not_found" }
+  | { ok: false; status: "unavailable" };
+
+export async function deleteBoard(boardPublicId: string, backendToken: string): Promise<DeleteBoardResult> {
+  const result = await callBoardsApi(`/v1/boards/${boardPublicId}`, backendToken, { method: "DELETE" });
+  if (!result.reached) return { ok: false, status: "unavailable" };
+  if (result.status === 204) return { ok: true };
+  if (result.status === 403) return { ok: false, status: "forbidden" };
+  if (result.status === 404) return { ok: false, status: "not_found" };
   return { ok: false, status: "unavailable" };
 }

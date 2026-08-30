@@ -4,14 +4,47 @@
 // router never makes an authorization decision itself, only maps backend responses.
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { listBoardsInputSchema, getBoardContentInputSchema } from "@/lib/boards/schemas";
-import { listBoards, getBoardContent } from "@/lib/api/boards-client";
+import {
+  listBoardsInputSchema,
+  getBoardContentInputSchema,
+  createBoardInputSchema,
+  renameBoardInputSchema,
+  starBoardInputSchema,
+  unstarBoardInputSchema,
+  deleteBoardInputSchema,
+} from "@/lib/boards/schemas";
+import {
+  listBoards,
+  getBoardContent,
+  createBoard,
+  renameBoard,
+  starBoard,
+  unstarBoard,
+  deleteBoard,
+} from "@/lib/api/boards-client";
 
 function unavailable(): TRPCError {
   return new TRPCError({
     code: "SERVICE_UNAVAILABLE",
     message: "The FlowBoard backend is unavailable.",
   });
+}
+
+function notFound(): TRPCError {
+  return new TRPCError({ code: "NOT_FOUND", message: "Board not found." });
+}
+
+function forbidden(): TRPCError {
+  return new TRPCError({ code: "FORBIDDEN", message: "You don't have permission to do this." });
+}
+
+function validation(fieldErrors: Record<string, string[]>): TRPCError {
+  const message = Object.values(fieldErrors)[0]?.[0] ?? "Validation failed.";
+  return new TRPCError({ code: "BAD_REQUEST", message });
+}
+
+function conflict(): TRPCError {
+  return new TRPCError({ code: "CONFLICT", message: "This board was changed by someone else." });
 }
 
 export const boardsRouter = createTRPCRouter({
@@ -38,4 +71,45 @@ export const boardsRouter = createTRPCRouter({
       }
       throw unavailable();
     }),
+
+  create: protectedProcedure.input(createBoardInputSchema).mutation(async ({ ctx, input }) => {
+    const result = await createBoard(input.name, ctx.session.backendToken);
+    if (result.ok) return result.data;
+    if (result.status === "validation") throw validation(result.fieldErrors);
+    throw unavailable();
+  }),
+
+  rename: protectedProcedure.input(renameBoardInputSchema).mutation(async ({ ctx, input }) => {
+    const result = await renameBoard(input.boardPublicId, input.name, input.ifMatch, ctx.session.backendToken);
+    if (result.ok) return result.data;
+    if (result.status === "validation") throw validation(result.fieldErrors);
+    if (result.status === "forbidden") throw forbidden();
+    if (result.status === "not_found") throw notFound();
+    if (result.status === "conflict") throw conflict();
+    throw unavailable();
+  }),
+
+  star: protectedProcedure.input(starBoardInputSchema).mutation(async ({ ctx, input }) => {
+    const result = await starBoard(input.boardPublicId, ctx.session.backendToken);
+    if (result.ok) return { ok: true as const };
+    if (result.status === "forbidden") throw forbidden();
+    if (result.status === "not_found") throw notFound();
+    throw unavailable();
+  }),
+
+  unstar: protectedProcedure.input(unstarBoardInputSchema).mutation(async ({ ctx, input }) => {
+    const result = await unstarBoard(input.boardPublicId, ctx.session.backendToken);
+    if (result.ok) return { ok: true as const };
+    if (result.status === "forbidden") throw forbidden();
+    if (result.status === "not_found") throw notFound();
+    throw unavailable();
+  }),
+
+  delete: protectedProcedure.input(deleteBoardInputSchema).mutation(async ({ ctx, input }) => {
+    const result = await deleteBoard(input.boardPublicId, ctx.session.backendToken);
+    if (result.ok) return { ok: true as const };
+    if (result.status === "forbidden") throw forbidden();
+    if (result.status === "not_found") throw notFound();
+    throw unavailable();
+  }),
 });

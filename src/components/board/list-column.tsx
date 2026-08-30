@@ -12,13 +12,25 @@
 // never collide: each uses its own dataTransfer MIME type (drag-data-types.ts), which is
 // the only thing readable during dragover (browsers block `.getData()` until `drop`).
 import { useState } from "react";
+import { isTRPCClientError } from "@trpc/client";
+import { toast } from "sonner";
 import { MoreHorizontal } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import type { BoardContent, CardSummary, ListContent } from "@/lib/api/boards-client";
 import { CardFront } from "@/components/board/card-front";
 import { CardComposer } from "@/components/board/card-composer";
+import { ListActionsMenu } from "@/components/board/list-actions-menu";
 import { CARD_DRAG_DATA_TYPE, LIST_DRAG_DATA_TYPE } from "@/components/board/drag-data-types";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+function errorMessage(error: unknown): string {
+  if (isTRPCClientError(error) && error.data?.code === "CONFLICT") {
+    return "This list was changed by someone else. Showing the latest version.";
+  }
+  return isTRPCClientError(error) ? error.message : "Something went wrong.";
+}
 
 interface ListColumnProps {
   list: ListContent;
@@ -95,7 +107,40 @@ export function ListColumn({
 }: ListColumnProps) {
   const [isCardDragOver, setIsCardDragOver] = useState(false);
   const [isListDragging, setIsListDragging] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(list.name);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const utils = trpc.useUtils();
+
+  // US4: mirrors card-title-field.tsx's click-to-edit shape exactly.
+  const renameMutation = trpc.lists.update.useMutation({
+    onSuccess: () => utils.boards.getContent.invalidate({ boardPublicId }),
+  });
+
+  const saveName = async () => {
+    if (renameMutation.isPending) {
+      return;
+    }
+
+    const trimmed = nameDraft.trim();
+    if (trimmed.length === 0 || trimmed === list.name) {
+      setNameDraft(list.name);
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      await renameMutation.mutateAsync({ listPublicId: list.publicId, ifMatch: list.rowVersion, name: trimmed });
+      toast.success("List renamed");
+      setIsEditingName(false);
+    } catch (error) {
+      toast.error(errorMessage(error));
+      if (isTRPCClientError(error) && error.data?.code === "CONFLICT") {
+        utils.boards.getContent.invalidate({ boardPublicId });
+      }
+      setIsEditingName(false);
+    }
+  };
 
   const moveCardMutation = trpc.cards.move.useMutation({
     onMutate: async (input) => {
@@ -160,7 +205,7 @@ export function ListColumn({
     >
       <div
         className="flex items-center gap-2 px-1 py-1"
-        draggable={canMutate}
+        draggable={canMutate && !isEditingName}
         onDragStart={(event) => {
           if (!canMutate) return;
           event.dataTransfer.setData(LIST_DRAG_DATA_TYPE, list.publicId);
@@ -169,7 +214,41 @@ export function ListColumn({
         }}
         onDragEnd={() => setIsListDragging(false)}
       >
-        <h3 className="flex-1 truncate text-sm font-semibold">{list.name}</h3>
+        {isEditingName && canMutate ? (
+          <Input
+            autoFocus
+            value={nameDraft}
+            disabled={renameMutation.isPending}
+            onChange={(event) => setNameDraft(event.target.value)}
+            onFocus={(event) => event.target.select()}
+            onBlur={saveName}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                saveName();
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                setNameDraft(list.name);
+                setIsEditingName(false);
+              }
+            }}
+            className="h-7 flex-1 text-sm font-semibold"
+          />
+        ) : canMutate ? (
+          <button
+            type="button"
+            onClick={() => {
+              setNameDraft(list.name);
+              setIsEditingName(true);
+            }}
+            className="flex-1 truncate rounded px-1 py-0.5 text-left text-sm font-semibold hover:bg-muted/60"
+          >
+            {list.name}
+          </button>
+        ) : (
+          <h3 className="flex-1 truncate text-sm font-semibold">{list.name}</h3>
+        )}
         <span
           className={cn(
             "rounded-full px-2 py-0.5 text-xs font-medium",
@@ -180,14 +259,22 @@ export function ListColumn({
         >
           {pillLabel}
         </span>
-        <button
-          type="button"
-          disabled
-          aria-label="List options (not available yet)"
-          className="rounded p-1 text-muted-foreground/60"
-        >
-          <MoreHorizontal className="size-4" />
-        </button>
+        {canMutate && (
+          <Popover open={isMenuOpen} onOpenChange={setIsMenuOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="List options"
+                className="rounded p-1 text-muted-foreground hover:bg-muted"
+              >
+                <MoreHorizontal className="size-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start">
+              <ListActionsMenu list={list} boardPublicId={boardPublicId} onClosed={() => setIsMenuOpen(false)} />
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
 
       <div className="flex flex-col gap-2 px-1 py-1">

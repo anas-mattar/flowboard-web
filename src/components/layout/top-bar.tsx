@@ -1,12 +1,13 @@
-import { Filter, Search, Star, UserPlus } from "lucide-react";
+import { Filter, Search, UserPlus } from "lucide-react";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { SidebarToggleButton } from "@/components/layout/sidebar-toggle-button";
+import { BoardTitleBar } from "@/components/layout/board-title-bar";
 import { auth } from "@/lib/auth/auth-config";
-import type { MemberAvatar } from "@/lib/api/boards-client";
+import type { MemberAvatar, BoardContent } from "@/lib/api/boards-client";
 
 export interface TopBarBoardSummary {
-  name: string;
+  content: BoardContent;
   members: MemberAvatar[];
 }
 
@@ -16,10 +17,11 @@ interface TopBarProps {
 
 // US2/R-6: workspace identity when no board is open (unchanged since 001/002); once a
 // board is open, VI-004/VI-005's full layout takes over — title, star, search, filter,
-// avatar stack, invite, theme toggle. The decorative controls this feature doesn't wire
-// up (star, search, filter, invite) stay visible but inert (FR-007/Assumptions) —
-// `disabled` communicates that to assistive tech rather than presenting a control that
-// silently does nothing when activated. The sidebar toggle (US3, T036) is functional.
+// avatar stack, invite, theme toggle. Title rename and star are now live
+// (specs/006-board-list-management, BoardTitleBar). The remaining decorative controls
+// (search, filter, invite) stay visible but inert (FR-007/Assumptions) — `disabled`
+// communicates that to assistive tech rather than presenting a control that silently
+// does nothing when activated. The sidebar toggle (US3, T036) is functional.
 export async function TopBar({ board }: TopBarProps) {
   const session = await auth();
 
@@ -28,18 +30,7 @@ export async function TopBar({ board }: TopBarProps) {
       <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <SidebarToggleButton />
-          <h1 className="truncate text-lg font-bold tracking-tight">{board.name}</h1>
-          <button
-            type="button"
-            disabled
-            aria-label="Star this board (not available yet)"
-            className="text-foreground/60 disabled:opacity-60"
-          >
-            {/* VI-004: the reference shows a plain outline star regardless of the
-                board's starred state — like the other FR-007 controls, this one is
-                decorative in this feature, not a live reflection of Board.Starred. */}
-            <Star className="size-4" />
-          </button>
+          <BoardTitleBar boardPublicId={board.content.publicId} initialBoard={board.content} />
         </div>
 
         <div className="flex items-center gap-2">
