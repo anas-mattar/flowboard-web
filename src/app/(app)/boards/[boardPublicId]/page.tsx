@@ -8,6 +8,7 @@ import { TRPCError } from "@trpc/server";
 import { createServerCaller } from "@/server/api/caller";
 import { TopBar } from "@/components/layout/top-bar";
 import { BoardCanvas } from "@/components/board/board-canvas";
+import { BoardFilterProvider } from "@/components/board/board-filter-context";
 
 interface BoardPageProps {
   params: Promise<{ boardPublicId: string }>;
@@ -38,7 +39,11 @@ export default async function BoardPage({ params }: BoardPageProps) {
   }
 
   return (
-    <>
+    // specs/007-search-filter ADR-30: TopBar (search box, Filter trigger) and BoardCanvas
+    // (chip bar, actual filtering) are siblings here, not parent/child — the provider
+    // wraps both. Keyed by boardPublicId so switching boards remounts it and resets every
+    // filter/search selection (FR-009) instead of requiring a manual reset effect.
+    <BoardFilterProvider key={boardPublicId}>
       <TopBar
         board={{
           content,
@@ -46,6 +51,6 @@ export default async function BoardPage({ params }: BoardPageProps) {
         }}
       />
       <BoardCanvas boardPublicId={boardPublicId} initialBoard={content} />
-    </>
+    </BoardFilterProvider>
   );
 }
