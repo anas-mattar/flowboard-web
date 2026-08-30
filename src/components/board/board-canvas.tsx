@@ -14,11 +14,13 @@
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc/client";
-import type { BoardContent, LabelSummary } from "@/lib/api/boards-client";
+import type { BoardContent } from "@/lib/api/boards-client";
 import { ListColumn, resolveBeforeSiblingPublicId } from "@/components/board/list-column";
 import { AddListComposer } from "@/components/board/add-list-composer";
 import { CardDetailModal } from "@/components/board/card-detail/card-detail-modal";
 import { LIST_DRAG_DATA_TYPE } from "@/components/board/drag-data-types";
+import { deriveBoardLabels } from "@/lib/board/board-labels";
+import { FilterChipBar } from "@/components/board/filter-chip-bar";
 
 interface BoardCanvasProps {
   boardPublicId: string;
@@ -80,21 +82,11 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
   );
   const canMutate = !viewerEntry || viewerEntry.role !== "Observer";
 
-  // Known limitation (no board-level label listing endpoint exists yet, see
-  // specs/004-card-crud/review-notes.md): the labels panel can only offer labels
-  // already assigned to at least one card on this board, derived from data already
-  // fetched here — not a full board label roster.
-  const boardLabels = useMemo(() => {
-    const seen = new Map<string, LabelSummary>();
-    for (const list of activeBoard.lists) {
-      for (const card of list.cards) {
-        for (const label of card.labels) {
-          seen.set(label.publicId, label);
-        }
-      }
-    }
-    return Array.from(seen.values());
-  }, [activeBoard]);
+  const boardLabels = useMemo(() => deriveBoardLabels(activeBoard), [activeBoard]);
+  const boardMembers = useMemo(
+    () => membersQuery.data?.members.map((member) => member.user) ?? [],
+    [membersQuery.data],
+  );
 
   const onListDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     if (!canMutate || !event.dataTransfer.types.includes(LIST_DRAG_DATA_TYPE)) return;
@@ -127,6 +119,7 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
 
   return (
     <>
+      <FilterChipBar boardLabels={boardLabels} members={boardMembers} />
       <main className="flex-1 overflow-x-auto overflow-y-auto bg-muted/20 p-4">
         {activeBoard.lists.length === 0 && !canMutate ? (
           <p className="text-sm text-muted-foreground">This board has no lists yet.</p>

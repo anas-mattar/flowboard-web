@@ -1,8 +1,10 @@
-import { Filter, Search, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { SignOutButton } from "@/components/layout/sign-out-button";
 import { SidebarToggleButton } from "@/components/layout/sidebar-toggle-button";
 import { BoardTitleBar } from "@/components/layout/board-title-bar";
+import { BoardSearchInput } from "@/components/layout/board-search-input";
+import { FilterPopover } from "@/components/board/filter-popover";
 import { auth } from "@/lib/auth/auth-config";
 import type { MemberAvatar, BoardContent } from "@/lib/api/boards-client";
 
@@ -18,10 +20,12 @@ interface TopBarProps {
 // US2/R-6: workspace identity when no board is open (unchanged since 001/002); once a
 // board is open, VI-004/VI-005's full layout takes over — title, star, search, filter,
 // avatar stack, invite, theme toggle. Title rename and star are now live
-// (specs/006-board-list-management, BoardTitleBar). The remaining decorative controls
-// (search, filter, invite) stay visible but inert (FR-007/Assumptions) — `disabled`
-// communicates that to assistive tech rather than presenting a control that silently
-// does nothing when activated. The sidebar toggle (US3, T036) is functional.
+// (specs/006-board-list-management, BoardTitleBar); search and the label/member/due-date
+// Filter popover are now live (specs/007-search-filter US1/US2, BoardSearchInput/
+// FilterPopover). The remaining decorative control (Invite) stays visible but inert
+// (FR-007/Assumptions) — `disabled` communicates that to assistive tech rather than
+// presenting a control that silently does nothing when activated. The sidebar toggle
+// (US3, T036) is functional.
 export async function TopBar({ board }: TopBarProps) {
   const session = await auth();
 
@@ -34,23 +38,8 @@ export async function TopBar({ board }: TopBarProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="relative hidden sm:block">
-            <Search className="absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="search"
-              disabled
-              placeholder="Search cards…"
-              className="h-8 w-40 rounded-md border border-input bg-transparent pl-7 text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-70 md:w-56"
-            />
-          </div>
-          <button
-            type="button"
-            disabled
-            className="flex items-center gap-1.5 rounded-md border border-foreground/20 px-2.5 py-1.5 text-sm text-foreground/70 disabled:opacity-60"
-          >
-            <Filter className="size-3.5" />
-            Filter
-          </button>
+          <BoardSearchInput />
+          <FilterPopover boardPublicId={board.content.publicId} members={board.members} />
           {board.members.length > 0 && (
             <div className="flex -space-x-1.5">
               {board.members.map((member) => (

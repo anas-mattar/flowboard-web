@@ -21,6 +21,8 @@ import { CardFront } from "@/components/board/card-front";
 import { CardComposer } from "@/components/board/card-composer";
 import { ListActionsMenu } from "@/components/board/list-actions-menu";
 import { CARD_DRAG_DATA_TYPE, LIST_DRAG_DATA_TYPE } from "@/components/board/drag-data-types";
+import { useBoardFilter } from "@/components/board/board-filter-context";
+import { passesBoardFilter } from "@/lib/board/passes-board-filter";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -163,6 +165,11 @@ export function ListColumn({
   const pillLabel =
     list.wipLimit !== null ? `${list.cardCount}/${list.wipLimit}` : `${list.cardCount}`;
 
+  // specs/007-search-filter US1/FR-008: filtering only changes what renders here — it
+  // never touches list.cardCount/list.wipLimit above, which stay the list's true count.
+  const { filter } = useBoardFilter();
+  const visibleCards = list.cards.filter((card) => passesBoardFilter(card, filter));
+
   const onCardDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     if (!canMutate || !event.dataTransfer.types.includes(CARD_DRAG_DATA_TYPE)) return;
     event.preventDefault();
@@ -278,10 +285,13 @@ export function ListColumn({
       </div>
 
       <div className="flex flex-col gap-2 px-1 py-1">
-        {list.cards.length === 0 && (
+        {visibleCards.length === 0 && list.cards.length > 0 && (
+          <p className="px-1 py-2 text-xs text-muted-foreground">No cards match the filter</p>
+        )}
+        {visibleCards.length === 0 && list.cards.length === 0 && (
           <p className="px-1 py-2 text-xs text-muted-foreground">No cards yet.</p>
         )}
-        {list.cards.map((card) => (
+        {visibleCards.map((card) => (
           <CardFront
             key={card.publicId}
             card={card}

@@ -1,4 +1,5 @@
-// Server-only client for specs/003-board-view-readonly/contracts/board-content-api.md.
+// Server-only client for specs/003-board-view-readonly/contracts/board-content-api.md and
+// specs/007-search-filter/contracts/search-filter-addendum.md.
 // Called only from server/api/routers/boards.ts (protectedProcedure); attaches the
 // caller's backend JWT as Authorization: Bearer — the backend re-resolves the caller's
 // actual board access on every call (domain invariant 5), this client never makes
@@ -34,6 +35,7 @@ export interface CardSummary {
   dueAt: string | null;
   dueStatus: "complete" | "overdue" | "soon" | "future" | null;
   hasDescription: boolean;
+  description: string | null;
   checklistDone: number | null;
   checklistTotal: number | null;
   commentCount: number;
