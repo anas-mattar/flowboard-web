@@ -8,10 +8,12 @@
 // (ADR-36) — this hook never inspects the event's payload, only that one arrived.
 // specs/008-realtime-sync US3 (T024): withAutomaticReconnect() plus onreconnecting/
 // onreconnected/onclose handlers track connection state for the FR-009 status indicator.
-// onreconnected also re-issues JoinBoard — SignalR's automatic reconnect negotiates a
-// brand-new connection id, so group membership from before the drop is gone until this
-// runs again (contracts/realtime-api.md) — and invalidates getContent so the client
-// catches up to current server state (FR-008, research.md R-7).
+// Both the initial connect and onreconnected funnel through joinAndSync (below), which
+// re-issues JoinBoard — SignalR's automatic reconnect negotiates a brand-new connection id,
+// so group membership from before the drop is gone until this runs again
+// (contracts/realtime-api.md) — then invalidates getContent so the client catches up to
+// current server state (FR-008, research.md R-7), only reporting "connected" once both have
+// settled.
 import { useEffect, useRef, useState } from "react";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { trpc } from "@/lib/trpc/client";
@@ -59,32 +61,39 @@ export function useBoardRealtime(boardPublicId: string): BoardRealtimeStatus {
       void utilsRef.current.boards.getContent.invalidate({ boardPublicId });
     });
 
+    // Re-joins the board group and refreshes the cache before reporting "connected", for
+    // both the initial connect and every reconnect. JoinBoard must complete first — group
+    // membership is what makes future events reach this client at all — and the cache
+    // fetch must run only after that (not fired concurrently with it), so the fetched
+    // snapshot is guaranteed to reflect anything already persisted by the time this client
+    // starts receiving events again. Firing the fetch immediately, before JoinBoard
+    // settles, leaves a gap: a mutation that lands in that window is neither in the
+    // (already-in-flight) snapshot nor delivered as an event, and nothing repairs it until
+    // an unrelated later event happens to trigger another refetch (FR-008, SC-004).
+    const joinAndSync = async () => {
+      try {
+        await connection.invoke("JoinBoard", boardPublicId);
+        await utilsRef.current.boards.getContent.invalidate({ boardPublicId });
+        if (!stopped) {
+          setStatus("connected");
+        }
+      } catch {
+        // JoinBoard can be rejected (Context.Abort()) if access was revoked while this
+        // client was offline — fall back to the disconnected (no live updates)
+        // presentation, and still invalidate so the existing no-access UI (T018) picks up
+        // the revocation instead of leaving stale board content displayed indefinitely.
+        setStatus("disconnected");
+        void utilsRef.current.boards.getContent.invalidate({ boardPublicId });
+      }
+    };
+
     connection.onreconnecting(() => setStatus("reconnecting"));
-
-    connection.onreconnected(() => {
-      setStatus("connected");
-      connection
-        .invoke("JoinBoard", boardPublicId)
-        .catch(() => {
-          // JoinBoard can be rejected (Context.Abort()) if access was revoked while this
-          // client was offline — treat that like a received access.revoked event: the
-          // board is no longer live for this client, so fall back to the disconnected
-          // (no live updates) presentation rather than claiming "connected".
-          setStatus("disconnected");
-        });
-      void utilsRef.current.boards.getContent.invalidate({ boardPublicId });
-    });
-
+    connection.onreconnected(() => void joinAndSync());
     connection.onclose(() => setStatus("disconnected"));
 
     connection
       .start()
-      .then(() => {
-        if (!stopped) {
-          setStatus("connected");
-          return connection.invoke("JoinBoard", boardPublicId);
-        }
-      })
+      .then(() => (stopped ? undefined : joinAndSync()))
       .catch(() => {
         // FR-012: a failed connect must never block the board from being usable — no
         // visible error, just no live updates. Story 4/US4 hardens this further.
