@@ -34,3 +34,7 @@ export type RenameBoardInput = z.infer<typeof renameBoardInputSchema>;
 export const starBoardInputSchema = z.object({ boardPublicId: z.string() });
 export const unstarBoardInputSchema = z.object({ boardPublicId: z.string() });
 export const deleteBoardInputSchema = z.object({ boardPublicId: z.string() });
+
+// contracts/realtime-api.md — POST /v1/boards/{boardPublicId}/realtime-token.
+export const getRealtimeTokenInputSchema = z.object({ boardPublicId: z.string() });
+export type GetRealtimeTokenInput = z.infer<typeof getRealtimeTokenInputSchema>;

@@ -14,6 +14,7 @@
 import { useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc/client";
+import { useBoardRealtime } from "@/lib/realtime/use-board-realtime";
 import type { BoardContent } from "@/lib/api/boards-client";
 import { ListColumn, resolveBeforeSiblingPublicId } from "@/components/board/list-column";
 import { AddListComposer } from "@/components/board/add-list-composer";
@@ -46,9 +47,11 @@ function applyOptimisticListMove(
 }
 
 export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
+  useBoardRealtime(boardPublicId);
+
   const [openCardPublicId, setOpenCardPublicId] = useState<string | null>(null);
   const [listDragOverTargetId, setListDragOverTargetId] = useState<string | null>(null);
-  const { data: board } = trpc.boards.getContent.useQuery(
+  const { data: board, error: boardError } = trpc.boards.getContent.useQuery(
     { boardPublicId },
     { initialData: initialBoard },
   );
@@ -116,6 +119,20 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
     );
     moveListMutation.mutate({ listPublicId, beforeListPublicId });
   };
+
+  // contracts/realtime-api.md: an "access.revoked" BoardEvent (member removed, board
+  // archived/deleted) is just another invalidate signal (research.md R-6) — this is what
+  // turns the resulting failed refetch into the same "no access" state
+  // app/(app)/boards/[boardPublicId]/page.tsx already shows on the very first load.
+  if (boardError?.data?.code === "NOT_FOUND") {
+    return (
+      <main className="mx-auto max-w-2xl p-8">
+        <p className="text-sm text-muted-foreground">
+          You don&apos;t have access to this board, or it doesn&apos;t exist.
+        </p>
+      </main>
+    );
+  }
 
   return (
     <>

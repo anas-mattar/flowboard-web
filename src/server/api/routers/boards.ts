@@ -12,6 +12,7 @@ import {
   starBoardInputSchema,
   unstarBoardInputSchema,
   deleteBoardInputSchema,
+  getRealtimeTokenInputSchema,
 } from "@/lib/boards/schemas";
 import {
   listBoards,
@@ -22,6 +23,7 @@ import {
   unstarBoard,
   deleteBoard,
 } from "@/lib/api/boards-client";
+import { getRealtimeToken } from "@/lib/api/realtime-client";
 
 function unavailable(): TRPCError {
   return new TRPCError({
@@ -109,6 +111,16 @@ export const boardsRouter = createTRPCRouter({
     const result = await deleteBoard(input.boardPublicId, ctx.session.backendToken);
     if (result.ok) return { ok: true as const };
     if (result.status === "forbidden") throw forbidden();
+    if (result.status === "not_found") throw notFound();
+    throw unavailable();
+  }),
+
+  // contracts/realtime-api.md — the one tRPC procedure the browser calls for realtime; the
+  // resulting token is then used directly against the SignalR hub (frontend-rules.md's
+  // sanctioned exception), never routed through the BFF again.
+  getRealtimeToken: protectedProcedure.input(getRealtimeTokenInputSchema).query(async ({ ctx, input }) => {
+    const result = await getRealtimeToken(input.boardPublicId, ctx.session.backendToken);
+    if (result.ok) return result.data;
     if (result.status === "not_found") throw notFound();
     throw unavailable();
   }),
