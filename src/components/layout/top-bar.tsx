@@ -5,6 +5,7 @@ import { SidebarToggleButton } from "@/components/layout/sidebar-toggle-button";
 import { BoardTitleBar } from "@/components/layout/board-title-bar";
 import { BoardSearchInput } from "@/components/layout/board-search-input";
 import { FilterPopover } from "@/components/board/filter-popover";
+import { RealtimeStatusIndicator } from "@/components/layout/realtime-status-indicator";
 import { auth } from "@/lib/auth/auth-config";
 import type { MemberAvatar, BoardContent } from "@/lib/api/boards-client";
 
@@ -25,7 +26,10 @@ interface TopBarProps {
 // FilterPopover). The remaining decorative control (Invite) stays visible but inert
 // (FR-007/Assumptions) — `disabled` communicates that to assistive tech rather than
 // presenting a control that silently does nothing when activated. The sidebar toggle
-// (US3, T036) is functional.
+// (US3, T036) is functional. The connection-status indicator (specs/008-realtime-sync
+// US3, T025/T026, FR-009) reads the board's one live hub connection via
+// board-realtime-context.tsx, which page.tsx wraps around this component and BoardCanvas
+// together (siblings, ADR-30).
 export async function TopBar({ board }: TopBarProps) {
   const session = await auth();
 
@@ -38,6 +42,7 @@ export async function TopBar({ board }: TopBarProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          <RealtimeStatusIndicator />
           <BoardSearchInput />
           <FilterPopover boardPublicId={board.content.publicId} members={board.members} />
           {board.members.length > 0 && (
