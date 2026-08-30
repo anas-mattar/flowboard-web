@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 import { trpc } from "@/lib/trpc/client";
 import type { BoardContent, LabelSummary } from "@/lib/api/boards-client";
 import { ListColumn, resolveBeforeSiblingPublicId } from "@/components/board/list-column";
+import { AddListComposer } from "@/components/board/add-list-composer";
 import { CardDetailModal } from "@/components/board/card-detail/card-detail-modal";
 import { LIST_DRAG_DATA_TYPE } from "@/components/board/drag-data-types";
 
@@ -127,7 +128,7 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
   return (
     <>
       <main className="flex-1 overflow-x-auto overflow-y-auto bg-muted/20 p-4">
-        {activeBoard.lists.length === 0 ? (
+        {activeBoard.lists.length === 0 && !canMutate ? (
           <p className="text-sm text-muted-foreground">This board has no lists yet.</p>
         ) : (
           <div
@@ -146,6 +147,7 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
                 isListDragOverTarget={listDragOverTargetId === list.publicId}
               />
             ))}
+            {canMutate && <AddListComposer boardPublicId={boardPublicId} />}
           </div>
         )}
       </main>

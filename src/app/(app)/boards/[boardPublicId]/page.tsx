@@ -41,7 +41,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
     <>
       <TopBar
         board={{
-          name: content.name,
+          content,
           members: membership.members.map((member) => member.user),
         }}
       />

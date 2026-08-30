@@ -5,12 +5,104 @@
 // trpc.boards.list (frontend-rules.md Data Flow — client data access uses trpc hooks);
 // the active board is read from the URL (usePathname), not lifted state, since this
 // component has no other reason to know which page is rendering it.
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { isTRPCClientError } from "@trpc/client";
+import { toast } from "sonner";
+import { Plus } from "lucide-react";
 import { trpc } from "@/lib/trpc/client";
 import { cn } from "@/lib/utils";
+import { createBoardFormSchema, type CreateBoardFormValues } from "@/lib/boards/schemas";
 import { useSidebar } from "@/components/layout/sidebar-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
+
+function errorMessage(error: unknown): string {
+  return isTRPCClientError(error) ? error.message : "Something went wrong.";
+}
+
+// US1/R-6: mirrors card-composer.tsx's inline composer shape — no native prompt().
+function CreateBoardComposer() {
+  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+  const utils = trpc.useUtils();
+  const createMutation = trpc.boards.create.useMutation({
+    onSuccess: (created) => {
+      utils.boards.list.invalidate();
+      setIsOpen(false);
+      router.push(`/boards/${created.publicId}`);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+
+  const form = useForm<CreateBoardFormValues>({
+    resolver: zodResolver(createBoardFormSchema),
+    defaultValues: { name: "" },
+  });
+
+  const onSubmit = (values: CreateBoardFormValues) => createMutation.mutate(values);
+
+  const onCancel = () => {
+    form.reset({ name: "" });
+    setIsOpen(false);
+  };
+
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/50"
+      >
+        <Plus className="size-3.5" />
+        Create board
+      </button>
+    );
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-2 px-2 py-1">
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  {...field}
+                  autoFocus
+                  placeholder="Board name"
+                  disabled={createMutation.isPending}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      onCancel();
+                    }
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm" disabled={createMutation.isPending}>
+            Create board
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
 
 // VI-003 shows "Workspace admin", not the raw PascalCase role value the backend returns.
 function humanizeRole(role: string): string {
@@ -95,6 +187,10 @@ export function Sidebar() {
             })}
           </ul>
         )}
+
+        <div className="mt-1">
+          <CreateBoardComposer />
+        </div>
       </nav>
 
       {session?.user && (
