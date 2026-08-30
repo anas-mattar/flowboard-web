@@ -13,7 +13,9 @@
 // so group membership from before the drop is gone until this runs again
 // (contracts/realtime-api.md) — then invalidates getContent so the client catches up to
 // current server state (FR-008, research.md R-7), only reporting "connected" once both have
-// settled.
+// settled. Each call is stamped with an `attempt` number so a stale in-flight attempt
+// (started before a drop) can't resolve late and overwrite a newer "reconnecting" or
+// "connected" state with its own outdated result.
 import { useEffect, useRef, useState } from "react";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { trpc } from "@/lib/trpc/client";
@@ -42,6 +44,11 @@ export function useBoardRealtime(boardPublicId: string): BoardRealtimeStatus {
     }
 
     let stopped = false;
+    // Guards against a stale joinAndSync attempt (started before a drop) resolving after a
+    // newer one has already started — without this, a slow initial-connect catch-up could
+    // finish after onreconnecting/onreconnected has already moved the status on, and
+    // overwrite "reconnecting" (or a fresher "connected") with its own now-outdated result.
+    let attempt = 0;
     const connection = new HubConnectionBuilder()
       .withUrl(hubUrl, {
         accessTokenFactory: async () => {
@@ -71,10 +78,11 @@ export function useBoardRealtime(boardPublicId: string): BoardRealtimeStatus {
     // (already-in-flight) snapshot nor delivered as an event, and nothing repairs it until
     // an unrelated later event happens to trigger another refetch (FR-008, SC-004).
     const joinAndSync = async () => {
+      const thisAttempt = ++attempt;
       try {
         await connection.invoke("JoinBoard", boardPublicId);
         await utilsRef.current.boards.getContent.invalidate({ boardPublicId });
-        if (!stopped) {
+        if (!stopped && thisAttempt === attempt) {
           setStatus("connected");
         }
       } catch {
@@ -82,14 +90,22 @@ export function useBoardRealtime(boardPublicId: string): BoardRealtimeStatus {
         // client was offline — fall back to the disconnected (no live updates)
         // presentation, and still invalidate so the existing no-access UI (T018) picks up
         // the revocation instead of leaving stale board content displayed indefinitely.
-        setStatus("disconnected");
-        void utilsRef.current.boards.getContent.invalidate({ boardPublicId });
+        if (!stopped && thisAttempt === attempt) {
+          setStatus("disconnected");
+        }
+        utilsRef.current.boards.getContent.invalidate({ boardPublicId }).catch(() => {});
       }
     };
 
-    connection.onreconnecting(() => setStatus("reconnecting"));
+    connection.onreconnecting(() => {
+      attempt++;
+      setStatus("reconnecting");
+    });
     connection.onreconnected(() => void joinAndSync());
-    connection.onclose(() => setStatus("disconnected"));
+    connection.onclose(() => {
+      attempt++;
+      setStatus("disconnected");
+    });
 
     connection
       .start()
