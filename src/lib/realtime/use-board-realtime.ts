@@ -17,7 +17,7 @@
 // (started before a drop) can't resolve late and overwrite a newer "reconnecting" or
 // "connected" state with its own outdated result.
 import { useEffect, useRef, useState } from "react";
-import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
+import { HubConnectionBuilder, LogLevel, type HubConnection } from "@microsoft/signalr";
 import { trpc } from "@/lib/trpc/client";
 
 export type BoardRealtimeStatus = "connecting" | "connected" | "reconnecting" | "disconnected";
@@ -49,20 +49,34 @@ export function useBoardRealtime(boardPublicId: string): BoardRealtimeStatus {
     // finish after onreconnecting/onreconnected has already moved the status on, and
     // overwrite "reconnecting" (or a fresher "connected") with its own now-outdated result.
     let attempt = 0;
-    const connection = new HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: async () => {
-          const { token } = await utilsRef.current.client.boards.getRealtimeToken.query({ boardPublicId });
-          return token;
-        },
-        // Auth is the query-string token above, not a cookie — this connection is
-        // cross-origin (Program.cs's "Realtime" CORS policy), which is simpler without
-        // needing AllowCredentials on the backend.
-        withCredentials: false,
-      })
-      .withAutomaticReconnect()
-      .configureLogging(LogLevel.Warning)
-      .build();
+    let connection: HubConnection;
+    try {
+      // US4/T029: HubConnectionBuilder validates hubUrl synchronously (there's no schema
+      // validation on NEXT_PUBLIC_FLOWBOARD_HUB_URL elsewhere) — a malformed value in a
+      // misconfigured environment would otherwise throw out of this effect and, with no
+      // error boundary around BoardRealtimeProvider, take down the whole board page instead
+      // of degrading to FR-012's "no live updates, board still usable."
+      connection = new HubConnectionBuilder()
+        .withUrl(hubUrl, {
+          accessTokenFactory: async () => {
+            const { token } = await utilsRef.current.client.boards.getRealtimeToken.query({ boardPublicId });
+            return token;
+          },
+          // Auth is the query-string token above, not a cookie — this connection is
+          // cross-origin (Program.cs's "Realtime" CORS policy), which is simpler without
+          // needing AllowCredentials on the backend.
+          withCredentials: false,
+        })
+        .withAutomaticReconnect()
+        .configureLogging(LogLevel.Warning)
+        .build();
+    } catch {
+      // Deferred (not called directly in the effect body) to satisfy the
+      // react-hooks/set-state-in-effect rule — every other setStatus call in this hook
+      // already runs inside an async/event callback, never synchronously in the effect body.
+      queueMicrotask(() => setStatus("disconnected"));
+      return;
+    }
 
     connection.on("BoardEvent", () => {
       void utilsRef.current.boards.getContent.invalidate({ boardPublicId });
