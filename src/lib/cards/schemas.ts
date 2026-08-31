@@ -58,6 +58,9 @@ export const getActivityInputSchema = z.object({
   limit: z.number().int().min(1).max(50).optional(),
 });
 
+// specs/009-card-attachments/contracts/attachments-api.md.
+export const removeAttachmentInputSchema = z.object({ attachmentPublicId: z.string().uuid() });
+
 export const copyCardInputSchema = z.object({ cardPublicId: z.string() });
 export const deleteCardInputSchema = z.object({ cardPublicId: z.string() });
 

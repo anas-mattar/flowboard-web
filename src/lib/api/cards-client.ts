@@ -344,6 +344,21 @@ export async function getActivity(
   return { ok: false, status: "unavailable" };
 }
 
+// specs/009-card-attachments/contracts/attachments-api.md.
+export async function removeAttachment(
+  attachmentPublicId: string,
+  backendToken: string,
+): Promise<SimpleMutationResult> {
+  const result = await callCardsApi(`/v1/attachments/${attachmentPublicId}`, backendToken, {
+    method: "DELETE",
+  });
+  if (!result.reached) return { ok: false, status: "unavailable" };
+  if (result.status === 204) return { ok: true };
+  if (result.status === 403) return { ok: false, status: "forbidden" };
+  if (result.status === 404) return { ok: false, status: "not_found" };
+  return { ok: false, status: "unavailable" };
+}
+
 export type CopyCardResult = { ok: true; data: CardSummary } | NotFoundOrUnavailable | Forbidden;
 
 export async function copyCard(cardPublicId: string, backendToken: string): Promise<CopyCardResult> {

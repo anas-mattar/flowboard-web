@@ -23,6 +23,8 @@ interface CardDetailModalProps {
   boardLists: ListContent[];
   onClose: () => void;
   canMutate: boolean;
+  isBoardAdmin: boolean;
+  currentUserPublicId: string | null;
 }
 
 export function CardDetailModal({
@@ -32,6 +34,8 @@ export function CardDetailModal({
   boardLists,
   onClose,
   canMutate,
+  isBoardAdmin,
+  currentUserPublicId,
 }: CardDetailModalProps) {
   const detailQuery = trpc.cards.getDetail.useQuery({ cardPublicId });
 
@@ -112,6 +116,8 @@ export function CardDetailModal({
                   boardPublicId={boardPublicId}
                   attachments={detailQuery.data.card.attachments}
                   canMutate={canMutate}
+                  isBoardAdmin={isBoardAdmin}
+                  currentUserPublicId={currentUserPublicId}
                 />
 
                 <CardActivityFeed cardPublicId={cardPublicId} />

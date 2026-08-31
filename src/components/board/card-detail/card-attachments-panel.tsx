@@ -7,17 +7,20 @@
 // matching every other panel's reconcile-with-the-server-response pattern rather than
 // inserting an optimistic row itself.
 import { useRef, useState } from "react";
+import { isTRPCClientError } from "@trpc/client";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc/client";
 import type { AttachmentDetail } from "@/lib/api/cards-client";
 import { Button } from "@/components/ui/button";
-import { Paperclip } from "lucide-react";
+import { Paperclip, X } from "lucide-react";
 
 interface CardAttachmentsPanelProps {
   cardPublicId: string;
   boardPublicId: string;
   attachments: AttachmentDetail[];
   canMutate: boolean;
+  isBoardAdmin: boolean;
+  currentUserPublicId: string | null;
 }
 
 interface PendingUpload {
@@ -31,15 +34,38 @@ function formatFileSize(sizeBytes: number): string {
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function errorMessage(error: unknown): string {
+  return isTRPCClientError(error) ? error.message : "Something went wrong.";
+}
+
 export function CardAttachmentsPanel({
   cardPublicId,
   boardPublicId,
   attachments,
   canMutate,
+  isBoardAdmin,
+  currentUserPublicId,
 }: CardAttachmentsPanelProps) {
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
+  const invalidate = () => {
+    utils.cards.getDetail.invalidate({ cardPublicId });
+    utils.boards.getContent.invalidate({ boardPublicId });
+  };
+
+  // contracts/attachments-api.md: removal is uploader-OR-board-admin, distinct from (and
+  // narrower than) canMutate — UX gating only, the backend re-resolves this server-side
+  // (invariant 5).
+  const removeMutation = trpc.cards.removeAttachment.useMutation({ onSuccess: invalidate });
+
+  const onRemove = async (attachment: AttachmentDetail) => {
+    try {
+      await removeMutation.mutateAsync({ attachmentPublicId: attachment.publicId });
+    } catch (error) {
+      toast.error(errorMessage(error));
+    }
+  };
 
   const uploadFile = async (file: File) => {
     const key = `${file.name}-${file.size}-${Date.now()}`;
@@ -103,28 +129,45 @@ export function CardAttachmentsPanel({
       )}
 
       <ul className="flex flex-col gap-1">
-        {attachments.map((attachment) => (
-          <li key={attachment.publicId} className="flex items-center gap-2 rounded px-1 py-1 hover:bg-muted/60">
-            <span
-              className="flex size-6 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-medium text-white"
-              style={{ backgroundColor: attachment.uploadedBy.avatarColor }}
-              title={attachment.uploadedBy.displayName}
+        {attachments.map((attachment) => {
+          const canRemove = isBoardAdmin || attachment.uploadedBy.publicId === currentUserPublicId;
+          return (
+            <li
+              key={attachment.publicId}
+              className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-muted/60"
             >
-              {attachment.uploadedBy.initials}
-            </span>
-            <div className="min-w-0 flex-1">
-              <a
-                href={`/api/attachments/${attachment.publicId}`}
-                className="block truncate text-sm font-medium underline-offset-2 hover:underline"
+              <span
+                className="flex size-6 shrink-0 items-center justify-center rounded-full text-[0.65rem] font-medium text-white"
+                style={{ backgroundColor: attachment.uploadedBy.avatarColor }}
+                title={attachment.uploadedBy.displayName}
               >
-                {attachment.fileName}
-              </a>
-              <p className="truncate text-xs text-muted-foreground">
-                {formatFileSize(attachment.sizeBytes)} · {attachment.uploadedBy.displayName}
-              </p>
-            </div>
-          </li>
-        ))}
+                {attachment.uploadedBy.initials}
+              </span>
+              <div className="min-w-0 flex-1">
+                <a
+                  href={`/api/attachments/${attachment.publicId}`}
+                  className="block truncate text-sm font-medium underline-offset-2 hover:underline"
+                >
+                  {attachment.fileName}
+                </a>
+                <p className="truncate text-xs text-muted-foreground">
+                  {formatFileSize(attachment.sizeBytes)} · {attachment.uploadedBy.displayName}
+                </p>
+              </div>
+              {canRemove && (
+                <button
+                  type="button"
+                  aria-label="Remove attachment"
+                  disabled={removeMutation.isPending}
+                  onClick={() => onRemove(attachment)}
+                  className="rounded p-1 text-muted-foreground opacity-0 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </li>
+          );
+        })}
 
         {pending.map((upload) => (
           <li key={upload.key} className="flex items-center gap-2 rounded px-1 py-1 text-muted-foreground">

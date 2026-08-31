@@ -18,6 +18,7 @@ import {
   deleteChecklistItemInputSchema,
   addCommentInputSchema,
   getActivityInputSchema,
+  removeAttachmentInputSchema,
   copyCardInputSchema,
   deleteCardInputSchema,
   moveCardInputSchema,
@@ -35,6 +36,7 @@ import {
   deleteChecklistItem,
   addComment,
   getActivity,
+  removeAttachment,
   copyCard,
   deleteCard,
   moveCard,
@@ -179,6 +181,16 @@ export const cardsRouter = createTRPCRouter({
     if (result.status === "not_found") throw notFound();
     throw unavailable();
   }),
+
+  removeAttachment: protectedProcedure
+    .input(removeAttachmentInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const result = await removeAttachment(input.attachmentPublicId, ctx.session.backendToken);
+      if (result.ok) return { ok: true as const };
+      if (result.status === "forbidden") throw forbidden();
+      if (result.status === "not_found") throw notFound();
+      throw unavailable();
+    }),
 
   copy: protectedProcedure.input(copyCardInputSchema).mutation(async ({ ctx, input }) => {
     const result = await copyCard(input.cardPublicId, ctx.session.backendToken);

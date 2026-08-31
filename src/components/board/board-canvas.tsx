@@ -81,6 +81,11 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
     (member) => member.user.publicId === session?.user?.publicId,
   );
   const canMutate = !viewerEntry || viewerEntry.role !== "Observer";
+  // specs/009-card-attachments contracts/attachments-api.md: attachment removal is
+  // uploader-OR-board-admin, narrower than canMutate — mirrors board-title-bar.tsx's own
+  // isBoardAdmin derivation.
+  const isBoardAdmin = viewerEntry?.role === "BoardAdmin";
+  const currentUserPublicId = session?.user?.publicId ?? null;
 
   const boardLabels = useMemo(() => deriveBoardLabels(activeBoard), [activeBoard]);
   const boardMembers = useMemo(
@@ -167,6 +172,8 @@ export function BoardCanvas({ boardPublicId, initialBoard }: BoardCanvasProps) {
           boardLists={activeBoard.lists}
           onClose={() => setOpenCardPublicId(null)}
           canMutate={canMutate}
+          isBoardAdmin={isBoardAdmin}
+          currentUserPublicId={currentUserPublicId}
         />
       )}
     </>
