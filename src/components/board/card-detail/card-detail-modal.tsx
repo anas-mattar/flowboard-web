@@ -12,6 +12,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CardTitleField } from "@/components/board/card-detail/card-title-field";
 import { CardDescriptionPanel } from "@/components/board/card-detail/card-description-panel";
 import { CardChecklistPanel } from "@/components/board/card-detail/card-checklist-panel";
+import { CardAttachmentsPanel } from "@/components/board/card-detail/card-attachments-panel";
 import { CardActivityFeed } from "@/components/board/card-detail/card-activity-feed";
 import { CardAddToCardMenu } from "@/components/board/card-detail/card-add-to-card-menu";
 
@@ -103,6 +104,13 @@ export function CardDetailModal({
                   cardPublicId={cardPublicId}
                   boardPublicId={boardPublicId}
                   items={detailQuery.data.card.checklistItems}
+                  canMutate={canMutate}
+                />
+
+                <CardAttachmentsPanel
+                  cardPublicId={cardPublicId}
+                  boardPublicId={boardPublicId}
+                  attachments={detailQuery.data.card.attachments}
                   canMutate={canMutate}
                 />
 

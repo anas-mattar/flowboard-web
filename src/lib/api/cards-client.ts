@@ -10,6 +10,15 @@ export interface ChecklistItemDetail {
   done: boolean;
 }
 
+// specs/009-card-attachments/contracts/attachments-api.md's card-detail-payload section.
+export interface AttachmentDetail {
+  publicId: string;
+  fileName: string;
+  sizeBytes: number;
+  uploadedBy: MemberAvatar;
+  createdAt: string;
+}
+
 export interface CardDetail {
   publicId: string;
   title: string;
@@ -24,6 +33,7 @@ export interface CardDetail {
   labels: LabelSummary[];
   members: MemberAvatar[];
   checklistItems: ChecklistItemDetail[];
+  attachments: AttachmentDetail[];
 }
 
 export interface ActivityEntry {
