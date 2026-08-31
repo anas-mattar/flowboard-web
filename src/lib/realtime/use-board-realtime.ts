@@ -80,6 +80,10 @@ export function useBoardRealtime(boardPublicId: string): BoardRealtimeStatus {
 
     connection.on("BoardEvent", () => {
       void utilsRef.current.boards.getContent.invalidate({ boardPublicId });
+      // plan.md ADR-44: no input filter — refetches whichever card detail query is
+      // currently cached (an open card modal), a no-op when none is. Closes the
+      // pre-existing gap where an open card detail modal never live-updated at all.
+      void utilsRef.current.cards.getDetail.invalidate();
     });
 
     // Re-joins the board group and refreshes the cache before reporting "connected", for

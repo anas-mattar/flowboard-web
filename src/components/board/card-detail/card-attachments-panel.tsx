@@ -28,10 +28,27 @@ interface PendingUpload {
   fileName: string;
 }
 
+// spec.md Assumptions / plan.md Constraints — mirrors CardService's server-side limits
+// exactly (frontend-security.md §6: "restrict accepted file types," "show file size
+// limits," "validate before upload"). UX only; the backend re-validates authoritatively.
+const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024;
+const BLOCKED_ATTACHMENT_EXTENSIONS = [".exe", ".bat", ".sh", ".cmd", ".msi"];
+
 function formatFileSize(sizeBytes: number): string {
   if (sizeBytes < 1024) return `${sizeBytes} B`;
   if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
   return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function findUploadRejectionReason(file: File): string | null {
+  if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+    return `"${file.name}" is over the 25 MB limit.`;
+  }
+  const lowerName = file.name.toLowerCase();
+  if (BLOCKED_ATTACHMENT_EXTENSIONS.some((extension) => lowerName.endsWith(extension))) {
+    return `"${file.name}" is a file type that isn't allowed.`;
+  }
+  return null;
 }
 
 function errorMessage(error: unknown): string {
@@ -68,6 +85,12 @@ export function CardAttachmentsPanel({
   };
 
   const uploadFile = async (file: File) => {
+    const rejectionReason = findUploadRejectionReason(file);
+    if (rejectionReason) {
+      toast.error(rejectionReason);
+      return;
+    }
+
     const key = `${file.name}-${file.size}-${Date.now()}`;
     setPending((previous) => [...previous, { key, fileName: file.name }]);
 
@@ -123,6 +146,10 @@ export function CardAttachmentsPanel({
           </>
         )}
       </div>
+
+      {canMutate && (
+        <p className="mb-2 text-xs text-muted-foreground">Up to 25 MB per file. Executable files aren&apos;t allowed.</p>
+      )}
 
       {attachments.length === 0 && pending.length === 0 && (
         <p className="text-sm text-muted-foreground">No attachments yet.</p>
