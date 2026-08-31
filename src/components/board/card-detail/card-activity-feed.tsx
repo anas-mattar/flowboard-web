@@ -70,6 +70,10 @@ function describe(entry: ActivityEntry): string | null {
       return `deleted checklist item "${payload.text}"`;
     case "card.moved":
       return `moved this card from ${payload.fromListName} to ${payload.toListName}`;
+    case "attachment.added":
+      return `attached "${payload.fileName}"`;
+    case "attachment.removed":
+      return `removed "${payload.fileName}"`;
     default:
       return null;
   }

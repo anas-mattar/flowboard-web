@@ -12,6 +12,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CardTitleField } from "@/components/board/card-detail/card-title-field";
 import { CardDescriptionPanel } from "@/components/board/card-detail/card-description-panel";
 import { CardChecklistPanel } from "@/components/board/card-detail/card-checklist-panel";
+import { CardAttachmentsPanel } from "@/components/board/card-detail/card-attachments-panel";
 import { CardActivityFeed } from "@/components/board/card-detail/card-activity-feed";
 import { CardAddToCardMenu } from "@/components/board/card-detail/card-add-to-card-menu";
 
@@ -22,6 +23,8 @@ interface CardDetailModalProps {
   boardLists: ListContent[];
   onClose: () => void;
   canMutate: boolean;
+  isBoardAdmin: boolean;
+  currentUserPublicId: string | null;
 }
 
 export function CardDetailModal({
@@ -31,6 +34,8 @@ export function CardDetailModal({
   boardLists,
   onClose,
   canMutate,
+  isBoardAdmin,
+  currentUserPublicId,
 }: CardDetailModalProps) {
   const detailQuery = trpc.cards.getDetail.useQuery({ cardPublicId });
 
@@ -104,6 +109,15 @@ export function CardDetailModal({
                   boardPublicId={boardPublicId}
                   items={detailQuery.data.card.checklistItems}
                   canMutate={canMutate}
+                />
+
+                <CardAttachmentsPanel
+                  cardPublicId={cardPublicId}
+                  boardPublicId={boardPublicId}
+                  attachments={detailQuery.data.card.attachments}
+                  canMutate={canMutate}
+                  isBoardAdmin={isBoardAdmin}
+                  currentUserPublicId={currentUserPublicId}
                 />
 
                 <CardActivityFeed cardPublicId={cardPublicId} />

@@ -10,6 +10,15 @@ export interface ChecklistItemDetail {
   done: boolean;
 }
 
+// specs/009-card-attachments/contracts/attachments-api.md's card-detail-payload section.
+export interface AttachmentDetail {
+  publicId: string;
+  fileName: string;
+  sizeBytes: number;
+  uploadedBy: MemberAvatar;
+  createdAt: string;
+}
+
 export interface CardDetail {
   publicId: string;
   title: string;
@@ -24,6 +33,7 @@ export interface CardDetail {
   labels: LabelSummary[];
   members: MemberAvatar[];
   checklistItems: ChecklistItemDetail[];
+  attachments: AttachmentDetail[];
 }
 
 export interface ActivityEntry {
@@ -330,6 +340,21 @@ export async function getActivity(
   );
   if (!result.reached) return { ok: false, status: "unavailable" };
   if (result.status === 200) return { ok: true, data: result.payload as CursorPage<ActivityEntry> };
+  if (result.status === 404) return { ok: false, status: "not_found" };
+  return { ok: false, status: "unavailable" };
+}
+
+// specs/009-card-attachments/contracts/attachments-api.md.
+export async function removeAttachment(
+  attachmentPublicId: string,
+  backendToken: string,
+): Promise<SimpleMutationResult> {
+  const result = await callCardsApi(`/v1/attachments/${attachmentPublicId}`, backendToken, {
+    method: "DELETE",
+  });
+  if (!result.reached) return { ok: false, status: "unavailable" };
+  if (result.status === 204) return { ok: true };
+  if (result.status === 403) return { ok: false, status: "forbidden" };
   if (result.status === 404) return { ok: false, status: "not_found" };
   return { ok: false, status: "unavailable" };
 }
